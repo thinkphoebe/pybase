@@ -7,12 +7,17 @@ create: Jul 2, 2014
 import logging
 import logging.handlers
 import sys
+import os
 
 # configures
 logging_console = False
+
+logging_file = False
 logging_file_name = None
 logging_file_rotating_count = 10
 logging_file_rotating_size = 1024 * 1024 * 10
+
+logging_udp = False
 logging_udp_ip = None
 logging_udp_port = 0
 logging_level = logging.DEBUG
@@ -24,6 +29,9 @@ _handler_console = None
 _handler_file = None
 _handler_udp = None
 _formatter = None
+
+_stdout_backup = None
+_stderr_backup = None
 
 
 def _update_logger(logger):
@@ -58,6 +66,11 @@ def update_config():
     global _handler_udp
     global _formatter
 
+    if _stdout_backup is not None:
+        sys.stdout = _stdout_backup
+    if _stderr_backup is not  None:
+        sys.stderr = _stderr_backup
+
     for logger in _loggers.values():
         if _handler_console != None:
             logger.removeHandler(_handler_console)
@@ -78,18 +91,22 @@ def update_config():
     else:
         _handler_console = None
 
-    if logging_file_name != None:
+    if logging_file:
+        if not os.path.exists(os.path.dirname(logging_file_name)):
+            os.makedirs(os.path.dirname(logging_file_name))
+
         if logging_file_rotating_count > 0:
             _handler_file = logging.handlers.RotatingFileHandler(logging_file_name, mode='a', \
                 maxBytes=logging_file_rotating_size, backupCount=logging_file_rotating_count)
         else:
             _handler_file = logging.FileHandler(logging_file_name, mode='a')
+
         if _formatter != None:
             _handler_file.setFormatter(_formatter)
     else:
         _handler_file = None
 
-    if logging_udp_ip != None:
+    if logging_udp:
         _handler_udp = logging.handlers.DatagramHandler(logging_udp_ip, logging_udp_port)
         if _formatter != None:
             _handler_udp.setFormatter(_formatter)
@@ -117,6 +134,13 @@ class _stream2logger(object):
 
 
 def redirect_sysout():
-    # redirect stdout/stderr to logger
+    # 备份，在update_config()时恢复，以免update_config()对应的logger被关闭时导致问题
+    global _stdout_backup
+    global _stderr_backup
+    if _stdout_backup is None:
+        _stdout_backup = sys.stdout
+    if _stderr_backup is None:
+        _stderr_backup = sys.stderr
+
     sys.stdout = _stream2logger(get_logger('stdout'), logging.INFO)
     sys.stderr = _stream2logger(get_logger('stderr'), logging.ERROR)

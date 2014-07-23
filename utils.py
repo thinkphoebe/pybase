@@ -6,9 +6,20 @@ create: Jul 14, 2014
 import subprocess
 import threading
 import time
+import os
+import sys
+from copy import deepcopy
 
 import log
 logger = log.get_logger('utils')
+
+
+class ExecptionMsg(Exception):
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return repr(self.value)
 
 
 def check_output_timeout(url, timeout=10):
@@ -31,3 +42,40 @@ def check_output_timeout(url, timeout=10):
         pass
 
     return thrd_run.output
+
+
+def getpwd():
+    pwd = sys.path[0]
+    if os.path.isfile(pwd):
+        pwd = os.path.dirname(os.path.realpath(pwd))
+    return pwd
+
+
+# from https://www.xormedia.com/recursively-merge-dictionaries-in-python/
+def dict_merge(a, b):
+    '''recursively merges dict's. not just simple a['key'] = b['key'], if
+    both a and bhave a key who's value is a dict then dict_merge is called
+    on both values and the result stored in the returned dictionary.'''
+
+    '''another solution
+    http://stackoverflow.com/questions/3232943/update-value-of-a-nested-dictionary-of-varying-depth
+    import collections
+    def dict_merge(d, u):
+        for k, v in u.iteritems():
+            if isinstance(v, collections.Mapping):
+                r = dict_merge(d.get(k, {}), v)
+                d[k] = r
+            else:
+                d[k] = u[k]
+        return d
+    '''
+
+    if not isinstance(b, dict):
+        return b
+    result = deepcopy(a)
+    for k, v in b.iteritems():
+        if k in result and isinstance(result[k], dict):
+                result[k] = dict_merge(result[k], v)
+        else:
+            result[k] = deepcopy(v)
+    return result
