@@ -51,6 +51,15 @@ def getpwd():
     return pwd
 
 
+def get_full_path(path):
+    base_dir = getpwd()
+    path = os.path.expanduser(path)
+    path = os.path.expandvars(path)
+    if not os.path.isabs(path):
+        path = base_dir + os.sep + path
+    return path
+
+
 # from https://www.xormedia.com/recursively-merge-dictionaries-in-python/
 def dict_merge(a, b):
     '''recursively merges dict's. not just simple a['key'] = b['key'], if
