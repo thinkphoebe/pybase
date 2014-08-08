@@ -60,6 +60,22 @@ def get_full_path(path):
     return path
 
 
+def read_json(fullpath, show_log=False):
+    '''read json file and remove comments'''
+    lines = open(fullpath).readlines()
+    if show_log:
+        logger.debug('original %s: %s' % (fullpath, ''.join(lines)))
+
+    for line in lines[:]:
+        line_lstrip = line.lstrip()
+        if line_lstrip.startswith('//'):
+            lines.remove(line)
+    if show_log:
+        logger.debug('after remove comments %s: %s' % (fullpath, ''.join(lines)))
+
+    return ''.join(lines)
+
+
 # from https://www.xormedia.com/recursively-merge-dictionaries-in-python/
 def dict_merge(a, b):
     '''recursively merges dict's. not just simple a['key'] = b['key'], if

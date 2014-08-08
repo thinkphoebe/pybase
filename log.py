@@ -20,7 +20,10 @@ logging_file_rotating_size = 1024 * 1024 * 10
 logging_udp = False
 logging_udp_ip = None
 logging_udp_port = 0
+
 logging_level = logging.DEBUG
+# format_str = '%(asctime)s[lv%(levelno)s] %(module)s.%(funcName)s,L%(lineno)d %(message)-80s| P%(process)d. %(threadName)s'
+format_str = '%(asctime)s|l%(levelno)s|%(module)s.%(funcName)s,L%(lineno)d|%(message)-80s'
 
 # internal used
 _configured = False
@@ -79,10 +82,7 @@ def update_config():
         if _handler_udp != None:
             logger.removeHandler(_handler_udp)
 
-    if _formatter == None:
-#         _formatter = logging.Formatter('%(asctime)s[lv%(levelno)s] %(module)s.%(funcName)s,L%(lineno)d '
-#                                        '%(message)-80s| P%(process)d. %(threadName)s')
-        _formatter = logging.Formatter('%(asctime)s|l%(levelno)s|%(module)s.%(funcName)s,L%(lineno)d|%(message)-80s')
+    _formatter = logging.Formatter(format_str)
 
     if logging_console:
         _handler_console = logging.StreamHandler(sys.stdout)
