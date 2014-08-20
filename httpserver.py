@@ -198,7 +198,7 @@ def handle_json_post(request_handler, handle_function):
     else:
         code = 400
         jobj['status'] = 'error'
-        jobj['error_msg'] = e.__str__()
+        jobj['error_msg'] = msg
 
     response = json.dumps(jobj, indent=2)
     logger.debug('response for %s:%s' % (handle_function.__str__(), response))
