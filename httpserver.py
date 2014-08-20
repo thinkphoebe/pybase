@@ -182,23 +182,30 @@ def write_response(request_handler, code=200, msg=''):
 
 
 def handle_json_post(request_handler, handle_function):
-    result, msg = read_post(request_handler)
     code = 200
     jobj = dict()
-
-    if result:
+    if request_handler.command == 'POST':
+        result, msg = read_post(request_handler)
+        if result:
+            try:
+                request = json.loads(msg)
+                logger.debug('request for %s:%s' % (handle_function.__str__(), json.dumps(request, indent=2)))
+                jobj = handle_function(request)
+            except Exception, e:
+                code = 400
+                jobj['status'] = 'error'
+                jobj['error_msg'] = e.__str__()
+        else:
+            code = 400
+            jobj['status'] = 'error'
+            jobj['error_msg'] = 'read_post FAILED!'
+    elif request_handler.command == 'GET':
         try:
-            request = json.loads(msg)
-            logger.debug('request for %s:%s' % (handle_function.__str__(), json.dumps(request, indent=2)))
-            jobj = handle_function(request)
+            jobj = handle_function(None)
         except Exception, e:
             code = 400
             jobj['status'] = 'error'
             jobj['error_msg'] = e.__str__()
-    else:
-        code = 400
-        jobj['status'] = 'error'
-        jobj['error_msg'] = msg
 
     response = json.dumps(jobj, indent=2)
     logger.debug('response for %s:%s' % (handle_function.__str__(), response))
