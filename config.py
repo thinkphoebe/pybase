@@ -44,6 +44,8 @@ class config(object):
             user = json.loads(utils.read_json(self._user_file, show_log=True))
             logger.debug('user_loaded:%s', json.dumps(user, indent=2))
             self.data = utils.dict_merge(self.data, user)
+            if user_path is not None:
+                self.data['default']['user_cfg_path'] = user_path
         except:
             logger.exception('got execption on load user:')
 
