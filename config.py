@@ -20,9 +20,13 @@ class config(object):
     def __init__(self, filename, default_path, user_path=None):
         logger.debug('filename:%s, default_path:%s, user_path:%s' % (filename, default_path, user_path))
         self._filename = filename
+        self._default_path = default_path
         self._default_file = utils.get_full_path(default_path + os.sep + filename)
+
+        self._user_path = None
         self._user_file = None
         if user_path is not None:
+            self._user_path = user_path
             self._user_file = utils.get_full_path(user_path + os.sep + filename)
         logger.debug('final default:%s, user:%s' % (self._default_file, self._user_file))
 
@@ -44,8 +48,8 @@ class config(object):
             user = json.loads(utils.read_json(self._user_file, show_log=True))
             logger.debug('user_loaded:%s', json.dumps(user, indent=2))
             self.data = utils.dict_merge(self.data, user)
-            if user_path is not None:
-                self.data['default']['user_cfg_path'] = user_path
+            if self._user_path is not None:
+                self.data['default']['user_cfg_path'] = self._user_path
         except:
             logger.exception('got execption on load user:')
 
@@ -70,3 +74,6 @@ class config(object):
         if key not in self.data[session]:
             return False
         return True
+
+    def get_default_path(self):
+        return self._default_path
