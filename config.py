@@ -56,8 +56,15 @@ class config(object):
         logger.debug('final_merged:%s', json.dumps(self.data, indent=2))
 
     def save(self):
-        logger.info('save config:%s' % self._user_file)
-        user_str = json.dumps(self.data, indent=2)
+        ori = json.loads(utils.read_json(self._default_file, show_log=False))
+        diff = utils.dict_diff(ori, self.data)
+
+#         logger.info('save config:%s' % self._user_file)
+#         user_str = json.dumps(self.data, indent=2)
+
+        logger.info('save config diff:%s, %s' % (self._user_file, json.dumps(diff, indent=2)))
+        user_str = json.dumps(diff, indent=2)
+
         if not os.path.exists(os.path.dirname(self._user_file)):
             os.makedirs(os.path.dirname(self._user_file))
         open(self._user_file, 'wb').write(user_str)

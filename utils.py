@@ -104,3 +104,63 @@ def dict_merge(a, b):
         else:
             result[k] = deepcopy(v)
     return result
+
+
+# 返回一个新的dict，dict_merge(ret, a) = b
+# config时，默认设置为a，合并修改后为b。保存时只保存ret，启动时dict_merge(ret, a)恢复
+# 支持嵌套dict，list。但list中的字典无法被递归比较，list中只要item的hash值不同即认为不同。
+def dict_diff(a, b):
+    def _dict_diff(a, b):
+        result = None
+        for (k, v) in b.iteritems():
+            if k in a:
+                if isinstance(v, (dict, tuple)):
+                    ret = _dict_diff(a[k], v)
+                    if ret is not None:
+                        if result is None:
+                            result = dict()
+                        result[k] = ret
+                elif isinstance(v, list):
+                    ret = _list_diff(a[k], v)
+                    if ret is not None:
+                        if result is None:
+                            result = dict()
+                        result[k] = ret
+                else:
+                    if v != a[k]:
+                        if result is None:
+                            result = dict()
+                        result[k] = v
+            else:
+                if result is None:
+                    result = dict()
+                result[k] = v
+        return result
+
+    def _list_diff(a, b):
+        result = None
+        for item in b:
+            if item not in a:
+                if result is None:
+                    result = list()
+                result.append(item)
+        return result
+
+    result = dict()
+    for (k, v) in b.iteritems():
+        if k in a:
+            if isinstance(v, (dict, tuple)):
+                ret = _dict_diff(a[k], v)
+                if ret is not None:
+                    result[k] = ret
+            elif isinstance(v, list):
+                ret = _list_diff(a[k], v)
+                if ret is not None:
+                    result[k] = ret
+            else:
+                if v != a[k]:
+                    result[k] = v
+        else:
+            result[k] = v
+
+    return result
