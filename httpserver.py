@@ -10,13 +10,268 @@ import SocketServer
 import urllib2
 import urlparse
 import json
+import hashlib
+import Cookie
+import copy
 
 import log
 logger = log.get_logger('httpserver')
 
 
-class _request_handler(BaseHTTPServer.BaseHTTPRequestHandler):
+class access_handler():
+    INFO_PATH = '/login_required.html'
+    LOGIN_PATH = '/login'
 
+    LOGIN_TIMEOUT = 10
+    TIMEOUT = 10 * 60
+
+    def __init__(self):
+        self._users = dict()
+        self._processing = dict()
+        self._sessions = dict()
+
+        self._path_exclude = set()
+        self.add_path_exclude(access_handler.INFO_PATH)
+        self.add_path_exclude(access_handler.LOGIN_PATH)
+
+    def register2httpserver(self, httpserver):
+        httpserver.register_get(access_handler.INFO_PATH, self._handler_infopage)
+        httpserver.register_get(access_handler.LOGIN_PATH, self._handler_login)
+        httpserver.register_post(access_handler.LOGIN_PATH, self._handler_login)
+        httpserver.set_access_handler(self)
+
+    def ungister2httpserver(self, httpserver):
+        httpserver.unregister_get(access_handler.INFO_PATH)
+        httpserver.unregister_get(access_handler.LOGIN_PATH)
+        httpserver.unregister_post(access_handler.LOGIN_PATH)
+
+    def add_user(self, username, key):
+        self._users[username] = key
+
+    def del_user(self, username):
+        del self._users[username]
+
+    def add_path_exclude(self, path):
+        if path not in self._path_exclude:
+            self._path_exclude.add(path)
+
+    def del_path_exclude(self, path):
+        self._path_exclude.remove(path)
+
+    def _send_needlogin(self, request_handler):
+        request_handler.send_response(302)
+        request_handler.send_header('Location', access_handler.INFO_PATH)
+        request_handler.end_headers()
+
+    def check_access(self, path, request_handler):
+        if path in self._path_exclude:
+            return True
+
+        if 'Cookie' not in request_handler.headers:
+            logger.debug('no cookie found, send need login')
+            self._send_needlogin(request_handler)
+            return False
+        c = Cookie.SimpleCookie(request_handler.headers["Cookie"])
+        if 'token' not in c:
+            logger.debug('no token in Cookie')
+            self._send_needlogin(request_handler)
+            return False
+
+        if c['token'].value not in self._sessions:
+            logger.debug('token (%s) not found in sessions!' % c['token'])
+            self._send_needlogin(request_handler)
+            return False
+
+        session = self._sessions[c['token'].value]
+
+        if session['ip'] != request_handler.client_address[0]:
+            logger.debug('ip changed, login:%s, curr:%s' % (session['ip'], request_handler.client_address[0]))
+            self._send_needlogin(request_handler)
+            return False
+
+        timecurr = time.time()
+        if abs(session['active_time'] - timecurr) > access_handler.TIMEOUT:
+            logger.debug('timeout, last active:%s, curr:%s' % (time.strftime('%Y%m%d-%M:%S', time.localtime(session['active_time'])), \
+                    time.strftime('%Y%m%d-%M:%S', time.localtime(timecurr))))
+            del self._sessions[c['token'].value]
+            self._send_needlogin(request_handler)
+            return False
+
+        session['active_time'] = timecurr
+        return True
+
+    def _get_token2set(self, request_handler):
+        def _make_cookie():
+            timecurr = time.time()
+
+            processing_count = 0
+            oldest = (None, None)
+
+            for key in self._processing.keys():
+                value = self._processing[key]
+                # clean timeout
+                if abs(timecurr - value['token_time']) > access_handler.LOGIN_TIMEOUT:
+                    logger.debug('clean timeout login:%s, %s' % (key, value.__str__()))
+                    del self._processing[key]
+
+                if value['ip'] == request_handler.client_address[0]:
+                    if oldest[0] is None or value['token_time'] < oldest[0]:
+                        oldest = (value['token_time'], key)
+                    processing_count += 1
+            # delete oldest items from same IP
+            if processing_count > 10:
+                logger.warn('too many in processing, delete oldest:%s' % oldest[2])
+                del self._processing[oldest[2]]
+
+            procinfo = dict()
+            server_random = request_handler.client_address[0] + ':' + time.strftime('%Y%m%d%H%M%S', time.localtime(timecurr))
+            token = hashlib.md5(server_random).hexdigest()
+            procinfo['ip'] = request_handler.client_address[0]
+            procinfo['token_time'] = timecurr
+            self._processing[token] = procinfo
+            logger.debug('make token [%s] for client [%s]' % (token, request_handler.client_address[0]))
+            return token
+
+        if 'Cookie' not in request_handler.headers:
+            return _make_cookie()
+        c = Cookie.SimpleCookie(request_handler.headers["Cookie"])
+        if 'token' not in c:
+            return _make_cookie()
+        if c['token'].value not in self._processing:
+            return _make_cookie()
+        data = self._processing[c['token'].value]
+
+        if data['ip'] != request_handler.client_address[0]:
+            logger.debug('ip changed, login:%s, curr:%s' % (data['ip'], request_handler.client_address[0]))
+            del self._processing[c['token'].value]
+            return _make_cookie()
+
+        timecurr = time.time()
+        if abs(data['token_time'] - timecurr) > access_handler.LOGIN_TIMEOUT:
+            logger.debug('timeout, last token_time:%s, curr:%s' % (time.strftime('%Y%m%d-%M:%S', time.localtime(data['token_time'])), \
+                    time.strftime('%Y%m%d-%M:%S', time.localtime(timecurr))))
+            del self._processing[c['token'].value]
+            return _make_cookie()
+
+        return None
+
+    def _send_failed(self, request_handler, msg):
+        request_handler.send_response(200)
+        token = self._get_token2set(request_handler)
+        if token is not None:
+            c = Cookie.SimpleCookie()
+            c['token'] = token
+            logger.debug('token:%s' % token)
+            request_handler.send_header('Set-Cookie', c.output(header=''))
+        request_handler.end_headers()
+
+        response = dict()
+        response['status'] = 'error'
+        response['error_msg'] = msg
+        request_handler.wfile.write(json.dumps(response, indent=2))
+
+    def _handler_infopage(self, request_handler):
+        msg = '''<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html><head><title>Login needed</title></head><body><p>You should first login</p></body></html>'''
+
+        request_handler.send_response(200)
+        token = self._get_token2set(request_handler)
+        if token is not None:
+            c = Cookie.SimpleCookie()
+            c['token'] = token
+            logger.debug('token:%s' % token)
+            request_handler.send_header('Set-Cookie', c.output(header=''))
+        request_handler.end_headers()
+        request_handler.wfile.write(msg)
+
+    def _handler_login(self, request_handler):
+        if 'Cookie' not in request_handler.headers:
+            logger.debug('no cookie found, send FAILED!')
+            return self._send_failed(request_handler, 'need cookie')
+        c = Cookie.SimpleCookie(request_handler.headers["Cookie"])
+        if 'token' not in c:
+            logger.debug('no token found in cookie, send FAILED!')
+            return self._send_failed(request_handler, 'need token')
+        token = c['token'].value
+        logger.debug('token:%s' % token)
+
+        if token in self._sessions:
+            logger.info('already login')
+            write_response(request_handler, 200, json.dumps({'status': 'ok'}, indent=2))
+            return
+
+        if token not in self._processing:
+            logger.debug('invalid token')
+            return self._send_failed(request_handler, 'invalid token')
+        procinfo = self._processing[token]
+
+        result, msg = read_post(request_handler)
+        if not result:
+            logger.debug('no post data, send FAILED!')
+            return self._send_failed(request_handler, 'need key')
+
+        try:
+            request = json.loads(msg)
+            logger.debug('request:%s' % (json.dumps(request, indent=2),))
+
+            if procinfo['ip'] != request_handler.client_address[0]:
+                self._send_failed(request_handler, 'IP changed')
+                return False
+
+            timecurr = time.time()
+            if abs(timecurr - procinfo['token_time']) > access_handler.LOGIN_TIMEOUT:
+                self._send_failed(request_handler, 'timeout')
+                return False
+
+            if 'username' not in request or 'seed' not in request or 'key' not in request:
+                self._send_failed(request_handler, 'invalid data')
+                return False
+
+            if request['username'] not in self._users:
+                self._send_failed(request_handler, 'user not found')
+                return False
+
+            key_tmp = hashlib.md5(self._users[request['username']] + ':' + request['seed']).hexdigest()
+            key = hashlib.md5(key_tmp + ':' + token).hexdigest()
+            logger.debug('username:%s, password:%s, key:%s' % (request['username'], self._users[request['username']], key))
+            if key != request['key']:
+                logger.debug('key error: (%s:%s) %s, send FAILED!' % (request['username'], request['key'], key))
+                self._send_failed(request_handler, 'key error')
+                return False
+
+            # clean timeout sessions
+            login_count = 0
+            for key in self._sessions.keys():
+                value = self._sessions[key]
+                if abs(timecurr - value['active_time']) > access_handler.TIMEOUT:
+                    logger.debug('clean session: %s, %s' % (key, value.__str__()))
+                    del self._sessions[key]
+            # check user's login count
+            for (key, value) in self._sessions.iteritems():
+                if value['user']['username'] == request['username']:
+                    login_count += 1
+            if login_count > 10:
+                logger.error('too many login')
+                self._send_failed(request_handler, 'too many login')
+                return
+
+            session = copy.deepcopy(procinfo)
+            del self._processing[token]
+            session['user'] = {'username': request['username'], 'password': self._users[request['username']]}
+            session['active_time'] = time.time()
+            self._sessions[token] = session
+
+            response = dict()
+            response['status'] = 'ok'
+            logger.debug('response:%s' % json.dumps(response, indent=2))
+            write_response(request_handler, 200, json.dumps(response, indent=2))
+        except (IOError, ValueError, KeyError):
+            logger.exception('got exception:')
+            self._send_failed(request_handler, 'server error')
+            return False
+
+
+class _request_handler(BaseHTTPServer.BaseHTTPRequestHandler):
     # redirect log message to logger
     def log_message(self, args, *vargs):
         logger.info("HTTPSERVER - %s", args % vargs)
@@ -27,6 +282,9 @@ class _request_handler(BaseHTTPServer.BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
             return
+        if self.server.access_handler is not None:
+            if not self.server.access_handler.check_access(parsed_path.path, self):
+                return
         self.server.handlers_get[parsed_path.path](self)
 
     def do_POST(self):
@@ -35,6 +293,9 @@ class _request_handler(BaseHTTPServer.BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
             return
+        if self.server.access_handler is not None:
+            if not self.server.access_handler.check_access(parsed_path.path, self):
+                return
         self.server.handlers_post[parsed_path.path](self)
 
 
@@ -48,6 +309,9 @@ class _threaded_httpserver(SocketServer.ThreadingMixIn, BaseHTTPServer.HTTPServe
     def set_handlers(self, handlers_get, handlers_post):
         self.handlers_get = handlers_get
         self.handlers_post = handlers_post
+
+    def set_access_handler(self, access_handler):
+        self.access_handler = access_handler
 
     def set_stopflag(self, value):
         self.stopflag = value
@@ -84,6 +348,7 @@ class httpserver():
         self._handlers_post = dict()
         self._host = None
         self._port = None
+        self._access_handler = None
 
     def start(self, host, port):
         logger.info('host:%s, port:%d, status:%d' % (host, port, self._status))
@@ -92,6 +357,7 @@ class httpserver():
             return
         self._server = _threaded_httpserver((host, port), _request_handler)
         self._server.set_handlers(self._handlers_get, self._handlers_post)
+        self._server.set_access_handler(self._access_handler)
         self._server.set_stopflag(False)
         self._status = 1
         self._serve_thrd = threading.Thread(target=_handler_thread, args=(self,))
@@ -157,6 +423,9 @@ class httpserver():
             return
         handler = self._handlers_post.pop(path)
         logger.info('unregister handler (%s) to get (%s)' % (handler.__str__(), path))
+
+    def set_access_handler(self, access_handler):
+        self._access_handler = access_handler
 
 
 # ================================ some utility functions  ========================================
