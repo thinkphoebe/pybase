@@ -21,6 +21,7 @@ logger = log.get_logger('httpserver')
 class access_handler():
     INFO_PATH = '/login_required.html'
     LOGIN_PATH = '/login'
+    LOGOUT_PATH = '/logout'
 
     LOGIN_TIMEOUT = 10
     TIMEOUT = 10 * 60
@@ -38,12 +39,14 @@ class access_handler():
         httpserver.register_get(access_handler.INFO_PATH, self._handler_infopage)
         httpserver.register_get(access_handler.LOGIN_PATH, self._handler_login)
         httpserver.register_post(access_handler.LOGIN_PATH, self._handler_login)
+        httpserver.register_get(access_handler.LOGOUT_PATH, self._handler_logout)
         httpserver.set_access_handler(self)
 
     def ungister2httpserver(self, httpserver):
         httpserver.unregister_get(access_handler.INFO_PATH)
         httpserver.unregister_get(access_handler.LOGIN_PATH)
         httpserver.unregister_post(access_handler.LOGIN_PATH)
+        httpserver.unregister_get(access_handler.LOGOUT_PATH)
 
     def add_user(self, username, key):
         self._users[username] = key
@@ -91,8 +94,8 @@ class access_handler():
 
         timecurr = time.time()
         if abs(session['active_time'] - timecurr) > access_handler.TIMEOUT:
-            logger.debug('timeout, last active:%s, curr:%s' % (time.strftime('%Y%m%d-%M:%S', time.localtime(session['active_time'])), \
-                    time.strftime('%Y%m%d-%M:%S', time.localtime(timecurr))))
+            logger.debug('timeout, last active:%s, curr:%s' % (time.strftime('%Y%m%d %H:%M:%S', time.localtime(session['active_time'])), \
+                    time.strftime('%Y%m%d %H:%M:%S', time.localtime(timecurr))))
             del self._sessions[c['token'].value]
             self._send_needlogin(request_handler)
             return False
@@ -148,8 +151,8 @@ class access_handler():
 
         timecurr = time.time()
         if abs(data['token_time'] - timecurr) > access_handler.LOGIN_TIMEOUT:
-            logger.debug('timeout, last token_time:%s, curr:%s' % (time.strftime('%Y%m%d-%M:%S', time.localtime(data['token_time'])), \
-                    time.strftime('%Y%m%d-%M:%S', time.localtime(timecurr))))
+            logger.debug('timeout, last token_time:%s, curr:%s' % (time.strftime('%Y%m%d %H:%M:%S', time.localtime(data['token_time'])), \
+                    time.strftime('%Y%m%d %H:%M:%S', time.localtime(timecurr))))
             del self._processing[c['token'].value]
             return _make_cookie()
 
@@ -187,11 +190,13 @@ class access_handler():
     def _handler_login(self, request_handler):
         if 'Cookie' not in request_handler.headers:
             logger.debug('no cookie found, send FAILED!')
-            return self._send_failed(request_handler, 'need cookie')
+            self._send_failed(request_handler, 'need cookie')
+            return
         c = Cookie.SimpleCookie(request_handler.headers["Cookie"])
         if 'token' not in c:
             logger.debug('no token found in cookie, send FAILED!')
-            return self._send_failed(request_handler, 'need token')
+            self._send_failed(request_handler, 'need token')
+            return
         token = c['token'].value
         logger.debug('token:%s' % token)
 
@@ -202,13 +207,15 @@ class access_handler():
 
         if token not in self._processing:
             logger.debug('invalid token')
-            return self._send_failed(request_handler, 'invalid token')
+            self._send_failed(request_handler, 'invalid token')
+            return
         procinfo = self._processing[token]
 
         result, msg = read_post(request_handler)
         if not result:
             logger.debug('no post data, send FAILED!')
-            return self._send_failed(request_handler, 'need key')
+            self._send_failed(request_handler, 'need key')
+            return
 
         try:
             request = json.loads(msg)
@@ -216,20 +223,20 @@ class access_handler():
 
             if procinfo['ip'] != request_handler.client_address[0]:
                 self._send_failed(request_handler, 'IP changed')
-                return False
+                return
 
             timecurr = time.time()
             if abs(timecurr - procinfo['token_time']) > access_handler.LOGIN_TIMEOUT:
                 self._send_failed(request_handler, 'timeout')
-                return False
+                return
 
             if 'username' not in request or 'seed' not in request or 'key' not in request:
                 self._send_failed(request_handler, 'invalid data')
-                return False
+                return
 
             if request['username'] not in self._users:
                 self._send_failed(request_handler, 'user not found')
-                return False
+                return
 
             key_tmp = hashlib.md5(self._users[request['username']] + ':' + request['seed']).hexdigest()
             key = hashlib.md5(key_tmp + ':' + token).hexdigest()
@@ -237,7 +244,7 @@ class access_handler():
             if key != request['key']:
                 logger.debug('key error: (%s:%s) %s, send FAILED!' % (request['username'], request['key'], key))
                 self._send_failed(request_handler, 'key error')
-                return False
+                return
 
             # clean timeout sessions
             login_count = 0
@@ -258,6 +265,7 @@ class access_handler():
             session = copy.deepcopy(procinfo)
             del self._processing[token]
             session['user'] = {'username': request['username'], 'password': self._users[request['username']]}
+            session['login_time'] = time.time()
             session['active_time'] = time.time()
             self._sessions[token] = session
 
@@ -268,7 +276,25 @@ class access_handler():
         except (IOError, ValueError, KeyError):
             logger.exception('got exception:')
             self._send_failed(request_handler, 'server error')
-            return False
+
+    def _handler_logout(self, request_handler):
+        if 'Cookie' not in request_handler.headers:
+            write_response(request_handler, 200, '{"status": "error", "error_msg": "no cookie found"}')
+            logger.debug('no cookie found')
+            return
+        c = Cookie.SimpleCookie(request_handler.headers["Cookie"])
+        if 'token' not in c:
+            write_response(request_handler, 200, '{"status": "error", "error_msg": "no token in Cookie"}')
+            logger.debug('no token in Cookie')
+            return
+        if c['token'].value not in self._sessions:
+            logger.debug('token (%s) not found in sessions!' % c['token'])
+            write_response(request_handler, 200, '{"status": "error", "error_msg": "token not found in sessions"}')
+            return
+        session = self._sessions[c['token'].value]
+        logger.debug('logout, ip:%s, login time:%s' % (session['ip'], time.strftime('%Y%m%d %H:%M:%S', time.localtime(session['login_time']))))
+        del self._sessions[c['token'].value]
+        write_response(request_handler, 200, '{"status": "ok"}')
 
 
 class _request_handler(BaseHTTPServer.BaseHTTPRequestHandler):
