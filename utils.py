@@ -26,18 +26,25 @@ def check_output_timeout(url, timeout=10):
     class ThreadRun(threading.Thread):
         def __init__(self):
             super(ThreadRun, self).__init__()
-            self.output = None
+            self.complete = False
+            self.output = [None, 0, False]  # output, return code, killed
 
         def run(self):
-            self.output = subprocess.check_output(url, stderr=subprocess.STDOUT)
+            try:
+                self.output[0] = subprocess.check_output(url, stderr=subprocess.STDOUT)
+            except subprocess.CalledProcessError, e:
+                self.output[0] = e.output
+                self.output[1] = e.returncode
+            self.complete = True
 
     thrd_run = ThreadRun()
     thrd_run.start()
-    while not thrd_run.output and timeout > 0:
+    while not thrd_run.complete and timeout > 0:
         time.sleep(0.1)
         timeout -= 0.1
     try:
-        thrd_run.proc.terminate()
+        thrd_run.kill()
+        thrd_run.output[2] = True
     except:
         pass
 
