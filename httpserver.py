@@ -13,6 +13,7 @@ import json
 import hashlib
 import Cookie
 import copy
+import traceback
 
 import log
 logger = log.get_logger('httpserver')
@@ -402,7 +403,7 @@ class httpserver():
         host, port = self._server.socket.getsockname()[:2]
         try:
             urllib2.urlopen('http://%s:%s' % (host, port))
-        except:
+        except IOError:
             pass
 
         logger.info('wait server stop...')
@@ -459,9 +460,9 @@ class httpserver():
 def read_post(request_handler):
     try:
         return (True, request_handler.rfile.read(int(request_handler.headers['content-length'])))
-    except Exception, e:
+    except IOError:
         logger.exception('got exception:')
-        return (False, e.__str__())
+        return (False, traceback.format_exc())
 
 
 def write_response(request_handler, code=200, msg=''):
@@ -471,13 +472,12 @@ def write_response(request_handler, code=200, msg=''):
         request_handler.end_headers()
         request_handler.wfile.write(msg)
         return True
-    except:
+    except IOError:
         logger.exception('got exception:')
         return False
 
 
 def handle_json_post(request_handler, handle_function):
-    code = 200
     jobj = dict()
     if request_handler.command == 'POST':
         result, msg = read_post(request_handler)
@@ -486,25 +486,22 @@ def handle_json_post(request_handler, handle_function):
                 request = json.loads(msg)
                 logger.debug('request for %s:%s' % (handle_function.__str__(), json.dumps(request, indent=2)))
                 jobj = handle_function(request)
-            except Exception, e:
-                code = 400
+            except (IOError, ValueError, KeyError):
                 jobj['status'] = 'error'
-                jobj['error_msg'] = e.__str__()
+                jobj['error_msg'] = traceback.format_exc()
         else:
-            code = 400
             jobj['status'] = 'error'
             jobj['error_msg'] = 'read_post FAILED!'
     elif request_handler.command == 'GET':
         try:
             jobj = handle_function(None)
         except Exception, e:
-            code = 400
             jobj['status'] = 'error'
-            jobj['error_msg'] = e.__str__()
+            jobj['error_msg'] = traceback.format_exc()
 
     response = json.dumps(jobj, indent=2)
     logger.debug('response for %s:%s' % (handle_function.__str__(), response))
-    write_response(request_handler, code, response)
+    write_response(request_handler, 200, response)
 
 
 # ================================ tests ========================================
@@ -535,17 +532,17 @@ def test():
     try:
         urllib2.urlopen('http://127.0.0.1:9000/path_unregistered')
     except Exception, e:
-        logger.info(e.__str__())
+        logger.exception('got exception:')
 
     try:
         urllib2.urlopen('http://127.0.0.1:9000/path_registered')
     except Exception, e:
-        logger.info(e.__str__())
+        logger.exception('got exception:')
 
     try:
         urllib2.urlopen('http://127.0.0.1:9000/path_registered?a=1')
     except Exception, e:
-        logger.info(e.__str__())
+        logger.exception('got exception:')
 
     try:
         logger.info('%s', urllib2.urlopen('http://127.0.0.1:9000/path_registered2'))
@@ -554,7 +551,7 @@ def test():
         server.stop()
         logger.info('end stop')
     except Exception, e:
-        logger.info(e.__str__())
+        logger.exception('got exception:')
 
 
 if __name__ == '__main__':
