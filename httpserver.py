@@ -124,7 +124,7 @@ class access_handler():
                     processing_count += 1
             # delete oldest items from same IP
             if processing_count > 10:
-                logger.warn('too many in processing, delete oldest:%s' % oldest[2])
+                logger.warning('too many in processing, delete oldest:%s' % oldest[2])
                 del self._processing[oldest[2]]
 
             procinfo = dict()
@@ -418,7 +418,7 @@ class httpserver():
             logger.error('invalid status:%d' % self._status)
             return
         if path in self._handlers_get:
-            logger.warn('"%s" already registered by %s' % (path, self._handlers_get[path]).__str__())
+            logger.warning('"%s" already registered by %s' % (path, self._handlers_get[path]).__str__())
         self._handlers_get[path] = handler
         logger.info('register handler (%s) to get (%s) OK' % (handler.__str__(), path))
 
@@ -437,7 +437,7 @@ class httpserver():
             logger.error('invalid status:%d' % self._status)
             return
         if path in self._handlers_post:
-            logger.warn('"%s" already registered by %s' % (path, self._handlers_post[path]).__str__())
+            logger.warning('"%s" already registered by %s' % (path, self._handlers_post[path]).__str__())
         self._handlers_post[path] = handler
         logger.info('register handler (%s) to post (%s) OK' % (handler.__str__(), path))
 
