@@ -14,14 +14,6 @@ import log
 logger = log.get_logger('utils')
 
 
-class ExecptionMsg(Exception):
-    def __init__(self, value):
-        self.value = value
-
-    def __str__(self):
-        return repr(self.value)
-
-
 def check_output_timeout(url, timeout=10):
     class ThreadRun(threading.Thread):
         def __init__(self):
