@@ -18,6 +18,7 @@ def check_output_timeout(url, timeout=10):
     class ThreadRun(threading.Thread):
         def __init__(self):
             super(ThreadRun, self).__init__()
+            self.setName('check_output')
             self.complete = False
             self.output = [None, 0, False]  # output, return code, killed
 

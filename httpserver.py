@@ -388,6 +388,7 @@ class httpserver():
         self._server.set_stopflag(False)
         self._status = 1
         self._serve_thrd = threading.Thread(target=_handler_thread, args=(self,))
+        self._serve_thrd.setName('http_handler')
         self._serve_thrd.start()
 
     def stop(self):
