@@ -53,8 +53,14 @@ def getpwd():
 
 def get_full_path(path):
     base_dir = getpwd()
-    path = os.path.expanduser(path)
+    # ATTENTION: 在windows下先expanduser时，${}写法的环境变量会导致出错，如：
+    # >>> print os.path.expanduser('~')
+    # C:\Documents and Settings\Administrator
+    # >>> print os.path.expanduser('~${OSSEP}.encng_manager${OSSEP}config')
+    # C:\Documents and Settings\${OSSEP}.encng_manager${OSSEP}config
+    # linux下未测试是否会有类似的问题
     path = os.path.expandvars(path)
+    path = os.path.expanduser(path)
     if not os.path.isabs(path):
         path = base_dir + os.sep + path
     return path
