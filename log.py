@@ -134,6 +134,10 @@ class _stream2logger(object):
 
 
 def redirect_sysout():
+    if not logging_console and not logging_file and not logging_udp:
+        print 'no handler configured'
+        return
+
     # 备份，在update_config()时恢复，以免update_config()对应的logger被关闭时导致问题
     global _stdout_backup
     global _stderr_backup
