@@ -24,7 +24,7 @@ def check_output_timeout(url, timeout=10):
 
         def run(self):
             try:
-                self.output[0] = subprocess.check_output(url, stderr=subprocess.STDOUT)
+                self.output[0] = subprocess.check_output(url, stderr=subprocess.STDOUT, close_fds=True)
             except subprocess.CalledProcessError, e:
                 self.output[0] = e.output
                 self.output[1] = e.returncode
