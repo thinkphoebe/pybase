@@ -23,11 +23,12 @@ def check_output_timeout(url, timeout=10):
             self.output = [None, 0, False]  # output, return code, killed
 
         def run(self):
-            try:
-                self.output[0] = subprocess.check_output(url, stderr=subprocess.STDOUT, close_fds=True)
-            except subprocess.CalledProcessError, e:
-                self.output[0] = e.output
-                self.output[1] = e.returncode
+            self.process = subprocess.Popen(url, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
+            output, unused_err = self.process.communicate()
+            retcode = self.process.poll()
+            if retcode:
+                self.output[1] = retcode
+            self.output[0] = output
             self.complete = True
 
     thrd_run = ThreadRun()
@@ -36,10 +37,11 @@ def check_output_timeout(url, timeout=10):
         time.sleep(0.1)
         timeout -= 0.1
     try:
-        thrd_run.kill()
+        thrd_run.process.kill()
+        thrd_run.process.wait()
         thrd_run.output[2] = True
     except:
-        pass
+        logger.exception('got exception:')
 
     return thrd_run.output
 
