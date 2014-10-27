@@ -14,6 +14,7 @@ import hashlib
 import Cookie
 import copy
 import traceback
+import random
 
 import log
 logger = log.get_logger('httpserver')
@@ -128,7 +129,8 @@ class access_handler():
                 del self._processing[oldest[2]]
 
             procinfo = dict()
-            server_random = request_handler.client_address[0] + ':' + time.strftime('%Y%m%d%H%M%S', time.localtime(timecurr))
+            server_random = request_handler.client_address[0] + ':' + time.strftime('%Y%m%d%H%M%S', \
+                    time.localtime(timecurr)) + ':' + str(random.randint(0, 100000000))
             token = hashlib.md5(server_random).hexdigest()
             procinfo['ip'] = request_handler.client_address[0]
             procinfo['token_time'] = timecurr
@@ -235,6 +237,10 @@ class access_handler():
                 self._send_failed(request_handler, 'invalid data')
                 return
 
+            if len(request['username']) == 0:
+                self._send_failed(request_handler, 'login required')
+                return
+
             if request['username'] not in self._users:
                 self._send_failed(request_handler, 'user not found')
                 return
@@ -244,7 +250,7 @@ class access_handler():
             logger.debug('username:%s, password:%s, key:%s' % (request['username'], self._users[request['username']], key))
             if key != request['key']:
                 logger.debug('key error: (%s:%s) %s, send FAILED!' % (request['username'], request['key'], key))
-                self._send_failed(request_handler, 'key error')
+                self._send_failed(request_handler, 'password error')
                 return
 
             # clean timeout sessions
