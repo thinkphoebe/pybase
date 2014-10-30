@@ -81,7 +81,12 @@ def read_json(fullpath, show_log=False):
     if show_log:
         logger.debug('after remove comments %s: %s' % (fullpath, ''.join(lines)))
 
-    return ''.join(lines)
+    ret = ''.join(lines)
+    try:
+        ret = ret.decode('utf-8')
+    except UnicodeError:
+        logger.exception('got exception:')
+    return ret
 
 
 # from https://www.xormedia.com/recursively-merge-dictionaries-in-python/
