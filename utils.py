@@ -8,6 +8,7 @@ import threading
 import time
 import os
 import sys
+import re
 from copy import deepcopy
 
 import log
@@ -68,25 +69,39 @@ def get_full_path(path):
     return path
 
 
-def read_json(fullpath, show_log=False):
-    '''read json file and remove comments'''
-    lines = open(fullpath).readlines()
+def process_json(jstr, show_log=False, encoding=None):
     if show_log:
-        logger.debug('original %s: %s' % (fullpath, ''.join(lines)))
+        logger.debug('original: %s' % jstr)
 
+    if encoding is not None:
+        jstr = jstr.decode(encoding).encode('utf8')
+        if show_log:
+            logger.debug('after decoding:%s' % jstr)
+
+    # 下面代码，值中有单引号的情况会出错，暂不使用。
+    # 处理json文件name没有加引号和值用单引号分割的情况。
+    # 替换规则：以{[,开头后面可跟空白符，然后至少一个字母，后面任意个字母或数字，
+    # 后面再任意的空白符，之后一个冒号。先加上''，再替换为""
+    # jstr = re.sub(r"([\{\[,]\s*)([A-Za-z]+\w*?)\s*:", r"\1'\2' :", jstr)
+    # jstr = jstr.replace("'", "\"")
+
+    # 去掉//和/**/的注释，不支持注释和代码在一行内混合的情况。
+    lines = jstr.split('\n')
     for line in lines[:]:
-        line_lstrip = line.lstrip()
-        if line_lstrip.startswith('//'):
+        line_strip = line.strip()
+        if line_strip.startswith('//'):
             lines.remove(line)
-    if show_log:
-        logger.debug('after remove comments %s: %s' % (fullpath, ''.join(lines)))
+        if line_strip.startswith('/*') and line_strip.endswith('*/'):
+            lines.remove(line)
 
-    ret = ''.join(lines)
-    try:
-        ret = ret.decode('utf-8')
-    except UnicodeError:
-        logger.exception('got exception:')
-    return ret
+    if show_log:
+        logger.debug('after remove comments:%s' % '\n'.join(lines))
+
+    return '\n'.join(lines)
+
+
+def read_json(fullpath, show_log=False, encoding=None):
+    return process_json(open(fullpath).read(), show_log, encoding)
 
 
 # from https://www.xormedia.com/recursively-merge-dictionaries-in-python/
