@@ -31,17 +31,22 @@ def check_output_timeout(url, timeout=10):
             self.output[0] = output
             self.complete = True
 
-    thrd_run = ThreadRun()
-    thrd_run.start()
-    while not thrd_run.complete and timeout > 0:
-        time.sleep(0.1)
-        timeout -= 0.1
+    try:
+        thrd_run = ThreadRun()
+        thrd_run.start()
+        while not thrd_run.complete and timeout > 0:
+            time.sleep(0.1)
+            timeout -= 0.1
+    except (OSError, AttributeError):
+        logger.exception('got exception:')
+
     try:
         thrd_run.process.kill()
         thrd_run.process.wait()
         thrd_run.output[2] = True
-    except:
-        logger.exception('got exception:')
+    except (OSError, AttributeError):
+#         logger.exception('got exception:')
+        pass
 
     return thrd_run.output
 
