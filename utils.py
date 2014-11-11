@@ -8,7 +8,6 @@ import threading
 import time
 import os
 import sys
-import re
 from copy import deepcopy
 
 import log
