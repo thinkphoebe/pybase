@@ -14,7 +14,7 @@ logger = log.get_logger('config')
 class config(object):
     '''
     __init__()时如指定user_path参数，则强制使用user_path参数指定的文件。 如未指定user_path参数，
-    default_path的文件中必须包含"default/user_cfg_path"配置项，使用该参数指定的文件。
+    default_path的文件中必须包含"default/user_path"配置项，使用user_path/config指定的文件。
     '''
 
     def __init__(self, filename, default_path, user_path=None):
@@ -40,7 +40,7 @@ class config(object):
         logger.debug('default_loaded:%s', json.dumps(self.data, indent=2))
 
         if self._user_file is None:
-            full = utils.get_full_path(self.data['default']['user_cfg_path'] + os.sep + self._filename)
+            full = utils.get_full_path(self.data['default']['user_path'] + os.sep + 'config' + os.sep + self._filename)
             logger.warning('no user_file specified, get from default file: %s' % full)
             self._user_file = full
 
@@ -49,7 +49,7 @@ class config(object):
             logger.debug('user_loaded:%s', json.dumps(user, indent=2))
             self.data = utils.dict_merge(self.data, user)
             if self._user_path is not None:
-                self.data['default']['user_cfg_path'] = self._user_path
+                self.data['default']['user_path'] = self._user_path
         except:
             logger.exception('got execption on load user:')
 
