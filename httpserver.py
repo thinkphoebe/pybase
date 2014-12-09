@@ -493,7 +493,7 @@ def handle_json_post(request_handler, handle_function):
                 request = json.loads(msg)
                 logger.debug('request for %s:%s' % (handle_function.__str__(), json.dumps(request, indent=2)))
                 jobj = handle_function(request)
-            except (IOError, ValueError, KeyError):
+            except (IOError, ValueError, KeyError, TypeError):
                 jobj['status'] = 'error'
                 jobj['error_msg'] = traceback.format_exc()
         else:
