@@ -511,6 +511,16 @@ def handle_json_post(request_handler, handle_function):
     write_response(request_handler, 200, response)
 
 
+def client_str(request_handler):
+    ip = request_handler.client_address[0]
+    token = 'none'
+    if 'Cookie' in request_handler.headers:
+        c = Cookie.SimpleCookie(request_handler.headers["Cookie"])
+        if 'token' in c:
+            token = c['token'].value
+    return '[ip:%s, token:%s]' % (ip, token)
+
+
 # ================================ tests ========================================
 
 def test_get_handler(request_handler):
