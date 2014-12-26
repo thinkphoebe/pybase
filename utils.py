@@ -5,6 +5,7 @@ create: Jul 14, 2014
 '''
 import subprocess
 import threading
+import select
 import time
 import os
 import sys
@@ -49,6 +50,45 @@ def check_output_timeout(url, timeout=10):
         pass
 
     return thrd_run.output
+
+
+def run_command(command, _dir=None):
+    retcode = 0
+    old_dir = os.getcwd()
+    if _dir is not None:
+        os.chdir(_dir)
+
+    logger.info('call [%s] in [%s]' % (command, _dir))
+    proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True, shell=True)
+    fn_stdout = proc.stdout.fileno()
+    fn_stderr = proc.stderr.fileno()
+    sets = [fn_stdout, fn_stderr]
+    output_stdout = None
+    output_stderr = None
+    while True:
+        ret = select.select(sets, [], [])
+        for fd in ret[0]:
+            if fd == fn_stdout:
+                output_stdout = proc.stdout.readline()
+                if output_stdout:
+                    output_stdout = output_stdout.rstrip()
+                    logger.debug('out %s' % (output_stdout, ))
+
+            if fd == fn_stderr:
+                output_stderr = proc.stderr.readline()
+                if output_stderr:
+                    output_stderr = output_stderr.rstrip()
+                    logger.debug('err %s' % (output_stderr, ))
+
+        retcode = proc.poll()
+        if retcode != None:
+            if not output_stderr and not output_stdout:
+                break
+
+    if _dir is not None:
+        os.chdir(old_dir)
+
+    return retcode
 
 
 def getpwd():
