@@ -63,7 +63,7 @@ class access_handler():
     def del_path_exclude(self, path):
         self._path_exclude.remove(path)
 
-    def _send_needlogin(self, request_handler):
+    def send_needlogin(self, request_handler):
         request_handler.send_response(302)
         request_handler.send_header('Location', access_handler.INFO_PATH)
         request_handler.end_headers()
@@ -74,24 +74,20 @@ class access_handler():
 
         if 'Cookie' not in request_handler.headers:
             logger.debug('no cookie found, send need login')
-            self._send_needlogin(request_handler)
             return False
         c = Cookie.SimpleCookie(request_handler.headers["Cookie"])
         if 'token' not in c:
             logger.debug('no token in Cookie')
-            self._send_needlogin(request_handler)
             return False
 
         if c['token'].value not in self._sessions:
             logger.debug('token (%s) not found in sessions!' % c['token'])
-            self._send_needlogin(request_handler)
             return False
 
         session = self._sessions[c['token'].value]
 
         if session['ip'] != request_handler.client_address[0]:
             logger.debug('ip changed, login:%s, curr:%s' % (session['ip'], request_handler.client_address[0]))
-            self._send_needlogin(request_handler)
             return False
 
         timecurr = time.time()
@@ -99,7 +95,6 @@ class access_handler():
             logger.debug('timeout, last active:%s, curr:%s' % (time.strftime('%Y%m%d %H:%M:%S', time.localtime(session['active_time'])), \
                     time.strftime('%Y%m%d %H:%M:%S', time.localtime(timecurr))))
             del self._sessions[c['token'].value]
-            self._send_needlogin(request_handler)
             return False
 
         session['active_time'] = timecurr
@@ -317,6 +312,7 @@ class _request_handler(BaseHTTPServer.BaseHTTPRequestHandler):
             return
         if self.server.access_handler is not None:
             if not self.server.access_handler.check_access(parsed_path.path, self):
+                self.server.access_handler.send_needlogin(self)
                 return
         self.server.handlers_get[parsed_path.path](self)
 
@@ -328,6 +324,10 @@ class _request_handler(BaseHTTPServer.BaseHTTPRequestHandler):
             return
         if self.server.access_handler is not None:
             if not self.server.access_handler.check_access(parsed_path.path, self):
+                # ATTENTION: 不读取post数据会导致客户端产生'[Errno 32] Broken pipe'的错误
+                # 客户端应避免在未登录前post大块数据
+                read_post(self)
+                self.server.access_handler.send_needlogin(self)
                 return
         self.server.handlers_post[parsed_path.path](self)
 
