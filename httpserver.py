@@ -472,12 +472,14 @@ def read_post(request_handler):
         return (False, traceback.format_exc())
 
 
-def write_response(request_handler, code=200, msg=''):
+def write_response(request_handler, code=200, msg='', debug=False):
     try:
         request_handler.send_response(code)
         request_handler.send_header('Content-Length', len(msg))
         request_handler.end_headers()
         request_handler.wfile.write(msg)
+        if debug:
+            logger.debug('code:%d, msg:%s' % (code, msg))
         return True
     except IOError:
         logger.exception('got exception:')
