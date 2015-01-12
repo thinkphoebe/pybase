@@ -145,7 +145,7 @@ def process_json(jstr, show_log=False, encoding=None):
 
 
 def read_json(fullpath, show_log=False, encoding=None):
-    return process_json(open(fullpath).read(), show_log, encoding)
+    return process_json(open(fullpath, 'rb').read(), show_log, encoding)
 
 
 # from https://www.xormedia.com/recursively-merge-dictionaries-in-python/
