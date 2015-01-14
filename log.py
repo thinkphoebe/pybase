@@ -96,7 +96,7 @@ def update_config():
             os.makedirs(os.path.dirname(logging_file_name))
 
         if logging_file_rotating_count > 0:
-            _handler_file = logging.handlers.RotatingFileHandler(logging_file_name, mode='a', \
+            _handler_file = CompressionRotatingFileHandler(logging_file_name, mode='a', \
                 maxBytes=logging_file_rotating_size, backupCount=logging_file_rotating_count)
         else:
             _handler_file = logging.FileHandler(logging_file_name, mode='a')
@@ -148,3 +148,65 @@ def redirect_sysout():
 
     sys.stdout = _stream2logger(get_logger('stdout'), logging.INFO)
     sys.stderr = _stream2logger(get_logger('stderr'), logging.ERROR)
+
+
+class CompressionRotatingFileHandler(logging.handlers.RotatingFileHandler):
+    def __init__(self, *args, **kws):
+        super(CompressionRotatingFileHandler, self).__init__(*args, **kws)
+
+    def doRollover(self):
+        COMPRESSION_SUPPORTED = {}
+        try:
+           import bz2
+           COMPRESSION_SUPPORTED['bz2'] = bz2.BZ2File
+        except ImportError:
+           pass
+        try:
+           import gzip
+           COMPRESSION_SUPPORTED['gz'] = gzip.GzipFile
+        except ImportError:
+           pass
+        try:
+           import zipfile
+           COMPRESSION_SUPPORTED['zip'] = zipfile.ZipFile
+        except ImportError:
+           pass
+
+        compress_cls = None
+        file_ext = ''
+        if 'bz2' in COMPRESSION_SUPPORTED:
+            compress_cls = COMPRESSION_SUPPORTED['bz2']
+            file_ext = '.bz2'
+        elif 'gzip' in COMPRESSION_SUPPORTED:
+            compress_cls = COMPRESSION_SUPPORTED['gzip']
+            file_ext = '.gz'
+        elif 'zip' in COMPRESSION_SUPPORTED:
+            compress_cls = COMPRESSION_SUPPORTED['zip']
+            file_ext = '.zip'
+
+        # roll over with compressed file extention
+        if self.stream:
+            self.stream.close()
+            self.stream = None
+        if self.backupCount > 0:
+            for i in range(self.backupCount - 1, 0, -1):
+                sfn = "%s.%d%s" % (self.baseFilename, i, file_ext)
+                dfn = "%s.%d%s" % (self.baseFilename, i + 1, file_ext)
+                if os.path.exists(sfn):
+                    if os.path.exists(dfn):
+                        os.remove(dfn)
+                    os.rename(sfn, dfn)
+            dfn = self.baseFilename + ".1"
+            if os.path.exists(dfn):
+                os.remove(dfn)
+            os.rename(self.baseFilename, dfn)
+        self.mode = 'w'
+        self.stream = self._open()
+
+        if compress_cls is None:
+            return
+        old_log = self.baseFilename + ".1"
+        with open(old_log, 'rb') as logfile:
+            with compress_cls(old_log + file_ext, 'wb') as comp_log:
+                comp_log.write(logfile.read())
+        os.remove(old_log)
