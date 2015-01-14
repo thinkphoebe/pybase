@@ -16,6 +16,7 @@ logging_file = False
 logging_file_name = None
 logging_file_rotating_count = 10
 logging_file_rotating_size = 1024 * 1024 * 10
+logging_file_rotating_compress = True
 
 logging_udp = False
 logging_udp_ip = None
@@ -97,7 +98,8 @@ def update_config():
 
         if logging_file_rotating_count > 0:
             _handler_file = CompressionRotatingFileHandler(logging_file_name, mode='a', \
-                maxBytes=logging_file_rotating_size, backupCount=logging_file_rotating_count)
+                maxBytes=logging_file_rotating_size, backupCount=logging_file_rotating_count, \
+                enable_compress=logging_file_rotating_compress)
         else:
             _handler_file = logging.FileHandler(logging_file_name, mode='a')
 
@@ -152,6 +154,7 @@ def redirect_sysout():
 
 class CompressionRotatingFileHandler(logging.handlers.RotatingFileHandler):
     def __init__(self, *args, **kws):
+        self.enable_compress = kws.pop('enable_compress')
         super(CompressionRotatingFileHandler, self).__init__(*args, **kws)
 
     def doRollover(self):
@@ -174,15 +177,16 @@ class CompressionRotatingFileHandler(logging.handlers.RotatingFileHandler):
 
         compress_cls = None
         file_ext = ''
-        if 'bz2' in COMPRESSION_SUPPORTED:
-            compress_cls = COMPRESSION_SUPPORTED['bz2']
-            file_ext = '.bz2'
-        elif 'gzip' in COMPRESSION_SUPPORTED:
-            compress_cls = COMPRESSION_SUPPORTED['gzip']
-            file_ext = '.gz'
-        elif 'zip' in COMPRESSION_SUPPORTED:
-            compress_cls = COMPRESSION_SUPPORTED['zip']
-            file_ext = '.zip'
+        if self.enable_compress:
+            if 'bz2' in COMPRESSION_SUPPORTED:
+                compress_cls = COMPRESSION_SUPPORTED['bz2']
+                file_ext = '.bz2'
+            elif 'gzip' in COMPRESSION_SUPPORTED:
+                compress_cls = COMPRESSION_SUPPORTED['gzip']
+                file_ext = '.gz'
+            elif 'zip' in COMPRESSION_SUPPORTED:
+                compress_cls = COMPRESSION_SUPPORTED['zip']
+                file_ext = '.zip'
 
         # roll over with compressed file extention
         if self.stream:
@@ -204,6 +208,8 @@ class CompressionRotatingFileHandler(logging.handlers.RotatingFileHandler):
         self.stream = self._open()
 
         if compress_cls is None:
+            return
+        if not self.enable_compress:
             return
         old_log = self.baseFilename + ".1"
         with open(old_log, 'rb') as logfile:
