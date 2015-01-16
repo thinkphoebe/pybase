@@ -461,6 +461,10 @@ class httpserver():
     def set_access_handler(self, access_handler):
         self._access_handler = access_handler
 
+    def get_session_info(self, token):
+        if token in self._access_handler._sessions:
+            return self._access_handler._sessions[token]
+        return None
 
 # ================================ some utility functions  ========================================
 
