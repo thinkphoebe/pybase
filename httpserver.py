@@ -55,6 +55,13 @@ class access_handler():
 
     def del_user(self, username):
         del self._users[username]
+        k = None
+        for key, value in self._sessions.iteritems():
+            if value['user']['username'] == username:
+                k = key
+                break
+        if k is not None:
+            del self._sessions[k]
 
     def add_path_exclude(self, path):
         if path not in self._path_exclude:
