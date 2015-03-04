@@ -9,6 +9,8 @@ import select
 import time
 import os
 import sys
+import struct
+import socket
 from copy import deepcopy
 
 import log
@@ -72,13 +74,13 @@ def run_command(command, _dir=None):
                 output_stdout = proc.stdout.readline()
                 if output_stdout:
                     output_stdout = output_stdout.rstrip()
-                    logger.debug('out %s' % (output_stdout, ))
+                    logger.debug('out %s' % (output_stdout,))
 
             if fd == fn_stderr:
                 output_stderr = proc.stderr.readline()
                 if output_stderr:
                     output_stderr = output_stderr.rstrip()
-                    logger.debug('err %s' % (output_stderr, ))
+                    logger.debug('err %s' % (output_stderr,))
 
         retcode = proc.poll()
         if retcode != None:
@@ -236,3 +238,10 @@ def dict_diff(a, b):
             result[k] = v
 
     return result
+
+
+def is_multicast_addr(addr_str):
+    try:
+        return socket.ntohl(struct.unpack('I', socket.inet_aton(addr_str))[0]) & 0xF0000000 == 0xE0000000
+    except (socket.error, ValueError, IndexError):
+        return False
