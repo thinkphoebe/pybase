@@ -473,6 +473,7 @@ class httpserver():
             return self._access_handler._sessions[token]
         return None
 
+
 # ================================ some utility functions  ========================================
 
 def read_post(request_handler):

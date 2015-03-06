@@ -54,6 +54,45 @@ def check_output_timeout(url, timeout=10):
     return thrd_run.output
 
 
+class subprocess_logreader():
+    def __init__(self, proc):
+        self._proc = proc
+        self._fn_stdout = proc.stdout.fileno()
+        self._fn_stderr = proc.stderr.fileno()
+        self._sets = [self._fn_stdout, self._fn_stderr]
+
+    def read_log(self):
+        # ATTENTION stdout如果被调用程序里没有调用fflush(stdout)，会一直读不到，直到程序退出时？
+        output_stdout = None
+        output_stderr = None
+        _log = list()
+        retcode = None
+
+        while True:
+            ret = select.select(self._sets, [], [])
+            for fd in ret[0]:
+                if fd == self._fn_stdout:
+                    output_stdout = self._proc.stdout.readline()
+                    if output_stdout:
+                        output_stdout = output_stdout.rstrip()
+                        _log.append((0, output_stdout))
+
+                if fd == self._fn_stderr:
+                    output_stderr = self._proc.stderr.readline()
+                    if output_stderr:
+                        output_stderr = output_stderr.rstrip()
+                        _log.append((1, output_stderr))
+
+            code = self._proc.poll()
+            if code != None:
+                if not output_stderr and not output_stdout:
+                    retcode = code
+            if len(_log) > 0 or ret is not None:
+                break
+
+        return (_log, retcode)
+
+
 def run_command(command, _dir=None):
     retcode = 0
     old_dir = os.getcwd()
@@ -62,34 +101,17 @@ def run_command(command, _dir=None):
 
     logger.info('call [%s] in [%s]' % (command, _dir))
     proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True, shell=True)
-    fn_stdout = proc.stdout.fileno()
-    fn_stderr = proc.stderr.fileno()
-    sets = [fn_stdout, fn_stderr]
-    output_stdout = None
-    output_stderr = None
+    logreader = subprocess_logreader(proc)
     while True:
-        ret = select.select(sets, [], [])
-        for fd in ret[0]:
-            if fd == fn_stdout:
-                output_stdout = proc.stdout.readline()
-                if output_stdout:
-                    output_stdout = output_stdout.rstrip()
-                    logger.debug('out %s' % (output_stdout,))
-
-            if fd == fn_stderr:
-                output_stderr = proc.stderr.readline()
-                if output_stderr:
-                    output_stderr = output_stderr.rstrip()
-                    logger.debug('err %s' % (output_stderr,))
-
-        retcode = proc.poll()
-        if retcode != None:
-            if not output_stderr and not output_stdout:
-                break
+        ret = logreader.read_log()
+        for item in ret[0]:
+            logger.debug('%s %s' % ('out' if item[0] == 0 else 'err', item[1]))
+        if ret[1] is not None:
+            retcode = ret[1]
+            break
 
     if _dir is not None:
         os.chdir(old_dir)
-
     return retcode
 
 
