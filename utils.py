@@ -173,7 +173,7 @@ def read_json(fullpath, show_log=False, encoding=None):
 
 
 # from https://www.xormedia.com/recursively-merge-dictionaries-in-python/
-def dict_merge(a, b):
+def dict_merge(a, b, hackerdel=True):
     '''recursively merges dict's. not just simple a['key'] = b['key'], if
     both a and bhave a key who's value is a dict then dict_merge is called
     on both values and the result stored in the returned dictionary.'''
@@ -195,17 +195,22 @@ def dict_merge(a, b):
         return b
     result = deepcopy(a)
     for k, v in b.iteritems():
-        if k in result and isinstance(result[k], dict):
-                result[k] = dict_merge(result[k], v)
+        if hackerdel and k.startswith('hackerdel_'):
+            if k[len('hackerdel_'):] in result:
+                logger.debug('remove key: %s' % k[len('hackerdel_'):])
+                del result[k[len('hackerdel_'):]]
+        elif k in result and isinstance(result[k], dict):
+            result[k] = dict_merge(result[k], v)
         else:
+            # ATTENTION: 此做法似乎“字典->列表->字典”情况时，列表内部的字典无法被merge
             result[k] = deepcopy(v)
     return result
 
 
-# 返回一个新的dict，dict_merge(ret, a) = b
-# config时，默认设置为a，合并修改后为b。保存时只保存ret，启动时dict_merge(ret, a)恢复
+# 返回一个新的dict，dict_merge(a, ret) = b
+# config时，默认设置为a，合并修改后为b。保存时只保存ret，启动时dict_merge(a, ret)恢复
 # 支持嵌套dict，list。但list中的字典无法被递归比较，list中只要item的hash值不同即认为不同。
-def dict_diff(a, b):
+def dict_diff(a, b, hackerdel=True):
     def _dict_diff(a, b):
         result = None
         for (k, v) in b.iteritems():
@@ -241,6 +246,19 @@ def dict_diff(a, b):
                     result = list()
                 result.append(item)
         return result
+
+    def _update_hacker_del(a, b):
+        if not hackerdel:
+            return
+        for (k, v) in a.iteritems():
+            if k not in b:
+                logger.debug('add hacker delete for key: %s' % k)
+                b['hackerdel_' + k] = None
+            elif isinstance(v, (dict, tuple)):
+                _update_hacker_del(v, b[k])
+
+    b = deepcopy(b)
+    _update_hacker_del(a, b)
 
     result = dict()
     for (k, v) in b.iteritems():
