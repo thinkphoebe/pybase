@@ -70,9 +70,26 @@ class access_handler():
     def del_path_exclude(self, path):
         self._path_exclude.remove(path)
 
+    def _check_setcookie(self, request_handler):
+        set_cookie = True
+        if 'Cookie' in request_handler.headers:
+            c = Cookie.SimpleCookie(request_handler.headers['Cookie'])
+            if 'token' in c and c['token'].value in self._processing and \
+                time.time() - self._processing[c['token'].value]['token_time'] < access_handler.LOGIN_TIMEOUT:
+                set_cookie = False
+        if set_cookie:
+            token = self._get_token2set(request_handler)
+            if token is not None:
+                c = Cookie.SimpleCookie()
+                c['token'] = token
+                logger.debug('token:%s' % token)
+                request_handler.send_header('Set-Cookie', c.output(header=''))
+        return True
+
     def send_needlogin(self, request_handler):
         request_handler.send_response(302)
         request_handler.send_header('Location', access_handler.INFO_PATH)
+        self._check_setcookie(request_handler)
         request_handler.end_headers()
 
     def check_access(self, path, request_handler):
@@ -82,7 +99,7 @@ class access_handler():
         if 'Cookie' not in request_handler.headers:
             logger.debug('no cookie found, send need login')
             return False
-        c = Cookie.SimpleCookie(request_handler.headers["Cookie"])
+        c = Cookie.SimpleCookie(request_handler.headers['Cookie'])
         if 'token' not in c:
             logger.debug('no token in Cookie')
             return False
@@ -165,12 +182,7 @@ class access_handler():
 
     def _send_failed(self, request_handler, msg):
         request_handler.send_response(200)
-        token = self._get_token2set(request_handler)
-        if token is not None:
-            c = Cookie.SimpleCookie()
-            c['token'] = token
-            logger.debug('token:%s' % token)
-            request_handler.send_header('Set-Cookie', c.output(header=''))
+        self._check_setcookie(request_handler)
         request_handler.end_headers()
 
         response = dict()
@@ -183,12 +195,8 @@ class access_handler():
 <html><head><title>Login needed</title></head><body><p>You should first login</p></body></html>'''
 
         request_handler.send_response(200)
-        token = self._get_token2set(request_handler)
-        if token is not None:
-            c = Cookie.SimpleCookie()
-            c['token'] = token
-            logger.debug('token:%s' % token)
-            request_handler.send_header('Set-Cookie', c.output(header=''))
+        if not self.check_access(None, request_handler):
+            self._check_setcookie(request_handler)
         request_handler.end_headers()
         request_handler.wfile.write(msg)
 
