@@ -93,7 +93,7 @@ class subprocess_logreader():
         return (_log, retcode)
 
 
-def run_command(command, _dir=None):
+def run_command(command, _dir=None, log_id=None):
     retcode = 0
     old_dir = os.getcwd()
     if _dir is not None:
@@ -105,7 +105,7 @@ def run_command(command, _dir=None):
     while True:
         ret = logreader.read_log()
         for item in ret[0]:
-            logger.debug('%s %s' % ('out' if item[0] == 0 else 'err', item[1]))
+            logger.debug('%s%s %s' % (log_id + '|' if log_id else '', 'out' if item[0] == 0 else 'err', item[1]))
         if ret[1] is not None:
             retcode = ret[1]
             break
