@@ -69,7 +69,9 @@ class config(object):
             os.makedirs(os.path.dirname(self._user_file))
         open(self._user_file, 'wb').write(user_str)
 
-    def get_value(self, key, session='default'):
+    def get_value(self, key, session='default', default=None):
+        if key not in self.data[session]:
+            return default
         return self.data[session][key]
 
     def set_value(self, key, value, session='default'):
