@@ -39,7 +39,7 @@ class config(object):
         self.data = json.loads(utils.read_json(self._default_file, show_log=True))
         logger.debug('default_loaded:%s', json.dumps(self.data, indent=2))
 
-        if self._user_file is None:
+        if self._user_file is None and 'user_path' in self.data['default']:
             full = utils.get_full_path(self.data['default']['user_path'] + os.sep + 'config' + os.sep + self._filename)
             logger.warning('no user_file specified, get from default file: %s' % full)
             self._user_file = full
