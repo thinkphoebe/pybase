@@ -55,7 +55,7 @@ def _update_logger(logger):
 
 def get_logger(name='unknown'):
     global _loggers
-    if name not in _loggers.keys():
+    if name not in list(_loggers.keys()):
         logger = logging.getLogger(name)
         _update_logger(logger)
         _loggers[name] = logger
@@ -75,7 +75,7 @@ def update_config():
     if _stderr_backup is not  None:
         sys.stderr = _stderr_backup
 
-    for logger in _loggers.values():
+    for logger in list(_loggers.values()):
         if _handler_console != None:
             logger.removeHandler(_handler_console)
         if _handler_file != None:
@@ -115,7 +115,7 @@ def update_config():
     else:
         _handler_udp = None
 
-    for logger in _loggers.values():
+    for logger in list(_loggers.values()):
         _update_logger(logger)
 
     _configured = True
@@ -137,7 +137,7 @@ class _stream2logger(object):
 
 def redirect_sysout():
     if not logging_console and not logging_file and not logging_udp:
-        print 'no handler configured'
+        print('no handler configured')
         return
 
     # 备份，在update_config()时恢复，以免update_config()对应的logger被关闭时导致问题

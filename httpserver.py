@@ -5,13 +5,13 @@ create: Jul 1, 2014
 '''
 import time
 import threading
-import BaseHTTPServer
-import SocketServer
-import urllib2
-import urlparse
+import http.server
+import socketserver
+import urllib.request, urllib.error, urllib.parse
+import urllib.parse
 import json
 import hashlib
-import Cookie
+import http.cookies
 import copy
 import traceback
 import random
@@ -56,7 +56,7 @@ class access_handler():
     def del_user(self, username):
         del self._users[username]
         k = None
-        for key, value in self._sessions.iteritems():
+        for key, value in self._sessions.items():
             if value['user']['username'] == username:
                 k = key
                 break
@@ -73,14 +73,14 @@ class access_handler():
     def _check_setcookie(self, request_handler):
         set_cookie = True
         if 'Cookie' in request_handler.headers:
-            c = Cookie.SimpleCookie(request_handler.headers['Cookie'])
+            c = http.cookies.SimpleCookie(request_handler.headers['Cookie'])
             if 'token' in c and c['token'].value in self._processing and \
                 time.time() - self._processing[c['token'].value]['token_time'] < access_handler.LOGIN_TIMEOUT:
                 set_cookie = False
         if set_cookie:
             token = self._get_token2set(request_handler)
             if token is not None:
-                c = Cookie.SimpleCookie()
+                c = http.cookies.SimpleCookie()
                 c['token'] = token
                 logger.debug('token:%s' % token)
                 request_handler.send_header('Set-Cookie', c.output(header=''))
@@ -99,7 +99,7 @@ class access_handler():
         if 'Cookie' not in request_handler.headers:
             logger.debug('no cookie found, send need login')
             return False
-        c = Cookie.SimpleCookie(request_handler.headers['Cookie'])
+        c = http.cookies.SimpleCookie(request_handler.headers['Cookie'])
         if 'token' not in c:
             logger.debug('no token in Cookie')
             return False
@@ -131,7 +131,7 @@ class access_handler():
             processing_count = 0
             oldest = (None, None)
 
-            for key in self._processing.keys():
+            for key in list(self._processing.keys()):
                 value = self._processing[key]
                 # clean timeout
                 if abs(timecurr - value['token_time']) > access_handler.LOGIN_TIMEOUT:
@@ -159,7 +159,7 @@ class access_handler():
 
         if 'Cookie' not in request_handler.headers:
             return _make_cookie()
-        c = Cookie.SimpleCookie(request_handler.headers["Cookie"])
+        c = http.cookies.SimpleCookie(request_handler.headers["Cookie"])
         if 'token' not in c:
             return _make_cookie()
         if c['token'].value not in self._processing:
@@ -205,7 +205,7 @@ class access_handler():
             logger.debug('no cookie found, send FAILED!')
             self._send_failed(request_handler, 'need cookie')
             return
-        c = Cookie.SimpleCookie(request_handler.headers["Cookie"])
+        c = http.cookies.SimpleCookie(request_handler.headers["Cookie"])
         if 'token' not in c:
             logger.debug('no token found in cookie, send FAILED!')
             self._send_failed(request_handler, 'need token')
@@ -265,13 +265,13 @@ class access_handler():
 
             # clean timeout sessions
             login_count = 0
-            for key in self._sessions.keys():
+            for key in list(self._sessions.keys()):
                 value = self._sessions[key]
                 if abs(timecurr - value['active_time']) > access_handler.TIMEOUT:
                     logger.debug('clean session: %s, %s' % (key, value.__str__()))
                     del self._sessions[key]
             # check user's login count
-            for (key, value) in self._sessions.iteritems():
+            for (key, value) in self._sessions.items():
                 if value['user']['username'] == request['username']:
                     login_count += 1
             if login_count > 10:
@@ -299,7 +299,7 @@ class access_handler():
             write_response(request_handler, 200, '{"status": "error", "error_msg": "no cookie found"}')
             logger.debug('no cookie found')
             return
-        c = Cookie.SimpleCookie(request_handler.headers["Cookie"])
+        c = http.cookies.SimpleCookie(request_handler.headers["Cookie"])
         if 'token' not in c:
             write_response(request_handler, 200, '{"status": "error", "error_msg": "no token in Cookie"}')
             logger.debug('no token in Cookie')
@@ -314,13 +314,13 @@ class access_handler():
         write_response(request_handler, 200, '{"status": "ok"}')
 
 
-class _request_handler(BaseHTTPServer.BaseHTTPRequestHandler):
+class _request_handler(http.server.BaseHTTPRequestHandler):
     # redirect log message to logger
     def log_message(self, args, *vargs):
         logger.info("HTTPSERVER - %s", args % vargs)
 
     def do_GET(self):
-        parsed_path = urlparse.urlparse(self.path)
+        parsed_path = urllib.parse.urlparse(self.path)
         if self.server.handlers_get is None or parsed_path.path not in self.server.handlers_get:
             self.send_response(404)
             self.end_headers()
@@ -332,7 +332,7 @@ class _request_handler(BaseHTTPServer.BaseHTTPRequestHandler):
         self.server.handlers_get[parsed_path.path](self)
 
     def do_POST(self):
-        parsed_path = urlparse.urlparse(self.path)
+        parsed_path = urllib.parse.urlparse(self.path)
         if self.server.handlers_post is None or parsed_path.path not in self.server.handlers_post:
             self.send_response(404)
             self.end_headers()
@@ -347,7 +347,7 @@ class _request_handler(BaseHTTPServer.BaseHTTPRequestHandler):
         self.server.handlers_post[parsed_path.path](self)
 
 
-class _threaded_httpserver(SocketServer.ThreadingMixIn, BaseHTTPServer.HTTPServer):
+class _threaded_httpserver(socketserver.ThreadingMixIn, http.server.HTTPServer):
 
     # force stop handler threads on server thread exit
     daemon_threads = True
@@ -424,7 +424,7 @@ class httpserver():
         # in '_handler_thread' will ends until next request in.
         host, port = self._server.socket.getsockname()[:2]
         try:
-            urllib2.urlopen('http://%s:%s' % (host, port))
+            urllib.request.urlopen('http://%s:%s' % (host, port))
         except IOError:
             pass
 
@@ -524,7 +524,7 @@ def handle_json_post(request_handler, handle_function):
     elif request_handler.command == 'GET':
         try:
             jobj = handle_function(None)
-        except Exception, e:
+        except Exception as e:
             jobj['status'] = 'error'
             jobj['error_msg'] = traceback.format_exc()
 
@@ -537,7 +537,7 @@ def client_str(request_handler):
     ip = request_handler.client_address[0]
     token = 'none'
     if 'Cookie' in request_handler.headers:
-        c = Cookie.SimpleCookie(request_handler.headers["Cookie"])
+        c = http.cookies.SimpleCookie(request_handler.headers["Cookie"])
         if 'token' in c:
             token = c['token'].value
     return '[ip:%s, token:%s]' % (ip, token)
@@ -569,27 +569,27 @@ def test():
     server.start('127.0.0.1', 9000)
 
     try:
-        urllib2.urlopen('http://127.0.0.1:9000/path_unregistered')
-    except Exception, e:
+        urllib.request.urlopen('http://127.0.0.1:9000/path_unregistered')
+    except Exception as e:
         logger.exception('got exception:')
 
     try:
-        urllib2.urlopen('http://127.0.0.1:9000/path_registered')
-    except Exception, e:
+        urllib.request.urlopen('http://127.0.0.1:9000/path_registered')
+    except Exception as e:
         logger.exception('got exception:')
 
     try:
-        urllib2.urlopen('http://127.0.0.1:9000/path_registered?a=1')
-    except Exception, e:
+        urllib.request.urlopen('http://127.0.0.1:9000/path_registered?a=1')
+    except Exception as e:
         logger.exception('got exception:')
 
     try:
-        logger.info('%s', urllib2.urlopen('http://127.0.0.1:9000/path_registered2'))
+        logger.info('%s', urllib.request.urlopen('http://127.0.0.1:9000/path_registered2'))
         time.sleep(3)
         logger.info('begin stop')
         server.stop()
         logger.info('end stop')
-    except Exception, e:
+    except Exception as e:
         logger.exception('got exception:')
 
 

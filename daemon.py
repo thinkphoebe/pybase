@@ -24,7 +24,7 @@ class Daemon:
             pid = os.fork()
             if pid > 0:
                 sys.exit(0)
-        except OSError, e:
+        except OSError as e:
             sys.stderr.write("fork #1 failed: %d (%s)\n" % (e.errno, e.strerror))
             sys.exit(1)
 
@@ -42,7 +42,7 @@ class Daemon:
             pid = os.fork()
             if pid > 0:
                 sys.exit(0)
-        except OSError, e:
+        except OSError as e:
             sys.stderr.write("fork #2 failed: %d (%s)\n" % (e.errno, e.strerror))
             sys.exit(1)
 
@@ -108,30 +108,30 @@ class Daemon:
             return  # not an error in a restart
 
         if os.path.isdir('/proc/%s' % pid):
-            print 'sending signal usr1 to notation child process to exit, wait 30s...'
+            print('sending signal usr1 to notation child process to exit, wait 30s...')
             for i in range(30):
                 try:
                     os.kill(pid, signal.SIGUSR1)
-                except OSError, err:
+                except OSError as err:
                     err = str(err).lower()
                     if err.find("no such process") > 0:
-                        print 'child process existed'
+                        print('child process existed')
                         break
                 time.sleep(1)
-                print '%d ...' % i
+                print('%d ...' % i)
 
         # Try killing the daemon process group
         try:
             while 1:
                 os.kill(pid, signal.SIGTERM)
                 time.sleep(0.1)
-        except OSError, err:
+        except OSError as err:
             err = str(err).lower()
             if err.find("no such process") > 0:
                 if os.path.exists(self.pidfile):
                     os.remove(self.pidfile)
             else:
-                print str(err)
+                print(str(err))
                 sys.exit(1)
 
     def restart(self):
@@ -148,27 +148,27 @@ class DaemonTest(Daemon):
 
     def _run(self):
         while True:
-            print "begin sleep"
+            print("begin sleep")
             time.sleep(20)
-            print "end sleep"
+            print("end sleep")
 
 
 if __name__ == "__main__":
     daemon = DaemonTest('/tmp/daemon-example.pid')
     if len(sys.argv) == 2:
         if 'start' == sys.argv[1]:
-            print 'start daemon'
+            print('start daemon')
             daemon.start()
         elif 'stop' == sys.argv[1]:
-            print 'stop daemon'
+            print('stop daemon')
             daemon.stop()
         elif 'restart' == sys.argv[1]:
-            print 'restart daemon'
+            print('restart daemon')
             daemon.restart()
         else:
-            print "Unknown command"
+            print("Unknown command")
             sys.exit(2)
         sys.exit(0)
     else:
-        print "usage: %s start|stop|restart" % sys.argv[0]
+        print("usage: %s start|stop|restart" % sys.argv[0])
         sys.exit(2)

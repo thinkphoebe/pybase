@@ -202,7 +202,7 @@ def dict_merge(a, b, hackerdel=True):
     if not isinstance(b, dict):
         return b
     result = deepcopy(a)
-    for k, v in b.iteritems():
+    for k, v in b.items():
         if hackerdel and k.startswith('hackerdel_'):
             if k[len('hackerdel_'):] in result:
                 logger.debug('remove key: %s' % k[len('hackerdel_'):])
@@ -221,7 +221,7 @@ def dict_merge(a, b, hackerdel=True):
 def dict_diff(a, b, hackerdel=True):
     def _dict_diff(a, b):
         result = None
-        for (k, v) in b.iteritems():
+        for (k, v) in b.items():
             if k in a:
                 if isinstance(v, (dict, tuple)):
                     ret = _dict_diff(a[k], v)
@@ -258,7 +258,7 @@ def dict_diff(a, b, hackerdel=True):
     def _update_hacker_del(a, b):
         if not hackerdel:
             return
-        for (k, v) in a.iteritems():
+        for (k, v) in a.items():
             if k not in b:
                 logger.debug('add hacker delete for key: %s' % k)
                 b['hackerdel_' + k] = None
@@ -269,7 +269,7 @@ def dict_diff(a, b, hackerdel=True):
     _update_hacker_del(a, b)
 
     result = dict()
-    for (k, v) in b.iteritems():
+    for (k, v) in b.items():
         if k in a:
             if isinstance(v, (dict, tuple)):
                 ret = _dict_diff(a[k], v)
