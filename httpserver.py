@@ -3,20 +3,23 @@
 @author: Ye Shengnan
 create: Jul 1, 2014
 '''
-import time
-import threading
-import http.server
-import socketserver
-import urllib.request, urllib.error, urllib.parse
-import urllib.parse
-import json
+import copy
 import hashlib
 import http.cookies
-import copy
-import traceback
+import http.server
+import json
 import random
+import socketserver
+import threading
+import time
+import traceback
+import urllib.error
+import urllib.parse
+import urllib.parse
+import urllib.request
 
-import log
+from . import log
+
 logger = log.get_logger('httpserver')
 
 
@@ -75,7 +78,7 @@ class access_handler():
         if 'Cookie' in request_handler.headers:
             c = http.cookies.SimpleCookie(request_handler.headers['Cookie'])
             if 'token' in c and c['token'].value in self._processing and \
-                time.time() - self._processing[c['token'].value]['token_time'] < access_handler.LOGIN_TIMEOUT:
+                    time.time() - self._processing[c['token'].value]['token_time'] < access_handler.LOGIN_TIMEOUT:
                 set_cookie = False
         if set_cookie:
             token = self._get_token2set(request_handler)
@@ -116,8 +119,9 @@ class access_handler():
 
         timecurr = time.time()
         if abs(session['active_time'] - timecurr) > access_handler.TIMEOUT:
-            logger.debug('timeout, last active:%s, curr:%s' % (time.strftime('%Y%m%d %H:%M:%S', time.localtime(session['active_time'])), \
-                    time.strftime('%Y%m%d %H:%M:%S', time.localtime(timecurr))))
+            logger.debug('timeout, last active:%s, curr:%s' % (
+            time.strftime('%Y%m%d %H:%M:%S', time.localtime(session['active_time'])), \
+            time.strftime('%Y%m%d %H:%M:%S', time.localtime(timecurr))))
             del self._sessions[c['token'].value]
             return False
 
@@ -148,7 +152,8 @@ class access_handler():
                 del self._processing[oldest[2]]
 
             procinfo = dict()
-            server_random = request_handler.client_address[0] + ':' + time.strftime('%Y%m%d%H%M%S', \
+            server_random = request_handler.client_address[0] + ':' + time.strftime('%Y%m%d%H%M%S',
+                    time.localtime(timecurr)) + ':' + str( random.randint(0, 100000000))
                     time.localtime(timecurr)) + ':' + str(random.randint(0, 100000000))
             token = hashlib.md5(server_random).hexdigest()
             procinfo['ip'] = request_handler.client_address[0]
@@ -173,8 +178,9 @@ class access_handler():
 
         timecurr = time.time()
         if abs(data['token_time'] - timecurr) > access_handler.LOGIN_TIMEOUT:
-            logger.debug('timeout, last token_time:%s, curr:%s' % (time.strftime('%Y%m%d %H:%M:%S', time.localtime(data['token_time'])), \
-                    time.strftime('%Y%m%d %H:%M:%S', time.localtime(timecurr))))
+            logger.debug('timeout, last token_time:%s, curr:%s' % (
+            time.strftime('%Y%m%d %H:%M:%S', time.localtime(data['token_time'])), \
+            time.strftime('%Y%m%d %H:%M:%S', time.localtime(timecurr))))
             del self._processing[c['token'].value]
             return _make_cookie()
 
@@ -309,7 +315,8 @@ class access_handler():
             write_response(request_handler, 200, '{"status": "error", "error_msg": "token not found in sessions"}')
             return
         session = self._sessions[c['token'].value]
-        logger.debug('logout, ip:%s, login time:%s' % (session['ip'], time.strftime('%Y%m%d %H:%M:%S', time.localtime(session['login_time']))))
+        logger.debug('logout, ip:%s, login time:%s' % (
+        session['ip'], time.strftime('%Y%m%d %H:%M:%S', time.localtime(session['login_time']))))
         del self._sessions[c['token'].value]
         write_response(request_handler, 200, '{"status": "ok"}')
 
@@ -348,7 +355,6 @@ class _request_handler(http.server.BaseHTTPRequestHandler):
 
 
 class _threaded_httpserver(socketserver.ThreadingMixIn, http.server.HTTPServer):
-
     # force stop handler threads on server thread exit
     daemon_threads = True
 

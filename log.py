@@ -6,8 +6,8 @@ create: Jul 2, 2014
 
 import logging
 import logging.handlers
-import sys
 import os
+import sys
 
 # configures
 logging_console = False
@@ -72,7 +72,7 @@ def update_config():
 
     if _stdout_backup is not None:
         sys.stdout = _stdout_backup
-    if _stderr_backup is not  None:
+    if _stderr_backup is not None:
         sys.stderr = _stderr_backup
 
     for logger in list(_loggers.values()):
@@ -98,8 +98,9 @@ def update_config():
 
         if logging_file_rotating_count > 0:
             _handler_file = CompressionRotatingFileHandler(logging_file_name, mode='a', \
-                maxBytes=logging_file_rotating_size, backupCount=logging_file_rotating_count, \
-                enable_compress=logging_file_rotating_compress)
+                                                           maxBytes=logging_file_rotating_size,
+                                                           backupCount=logging_file_rotating_count, \
+                                                           enable_compress=logging_file_rotating_compress)
         else:
             _handler_file = logging.FileHandler(logging_file_name, mode='a')
 
@@ -125,6 +126,7 @@ class _stream2logger(object):
     """
     Fake file-like stream object that redirects writes to a logger instance.
     """
+
     def __init__(self, logger, log_level=logging.INFO):
         self.logger = logger
         self.log_level = log_level
@@ -160,20 +162,20 @@ class CompressionRotatingFileHandler(logging.handlers.RotatingFileHandler):
     def doRollover(self):
         COMPRESSION_SUPPORTED = {}
         try:
-           import bz2
-           COMPRESSION_SUPPORTED['bz2'] = bz2.BZ2File
+            import bz2
+            COMPRESSION_SUPPORTED['bz2'] = bz2.BZ2File
         except ImportError:
-           pass
+            pass
         try:
-           import gzip
-           COMPRESSION_SUPPORTED['gz'] = gzip.GzipFile
+            import gzip
+            COMPRESSION_SUPPORTED['gz'] = gzip.GzipFile
         except ImportError:
-           pass
+            pass
         try:
-           import zipfile
-           COMPRESSION_SUPPORTED['zip'] = zipfile.ZipFile
+            import zipfile
+            COMPRESSION_SUPPORTED['zip'] = zipfile.ZipFile
         except ImportError:
-           pass
+            pass
 
         compress_cls = None
         file_ext = ''

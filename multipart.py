@@ -39,6 +39,7 @@ def encode(fields, files, boundary=None):
     >>> len(body)
     193
     """
+
     def escape_quote(s):
         return s.replace('"', '\\"')
 
@@ -63,7 +64,7 @@ def encode(fields, files, boundary=None):
         lines.extend((
             '--{0}'.format(boundary),
             'Content-Disposition: form-data; name="{0}"; filename="{1}"'.format(
-                    escape_quote(name), escape_quote(filename)),
+                escape_quote(name), escape_quote(filename)),
             'Content-Type: {0}'.format(mimetype),
             '',
             value['content'],

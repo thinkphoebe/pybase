@@ -3,11 +3,12 @@
 @author: Ye Shengnan
 create: Jul 22, 2014
 '''
-import os
 import json
+import os
 
-import utils
-import log
+from . import log
+from . import utils
+
 logger = log.get_logger('config')
 
 
@@ -59,8 +60,8 @@ class config(object):
         ori = json.loads(utils.read_json(self._default_file, show_log=False))
         diff = utils.dict_diff(ori, self.data)
 
-#         logger.info('save config:%s' % self._user_file)
-#         user_str = json.dumps(self.data, indent=2)
+        #         logger.info('save config:%s' % self._user_file)
+        #         user_str = json.dumps(self.data, indent=2)
 
         logger.info('save config diff:%s, %s' % (self._user_file, json.dumps(diff, indent=2)))
         user_str = json.dumps(diff, indent=2)

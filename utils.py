@@ -3,17 +3,18 @@
 @author: Ye Shengnan
 create: Jul 14, 2014
 '''
-import subprocess
-import threading
-import select
-import time
 import os
-import sys
-import struct
+import select
 import socket
+import struct
+import subprocess
+import sys
+import threading
+import time
 from copy import deepcopy
 
-import log
+from . import log
+
 logger = log.get_logger('utils')
 
 
@@ -56,7 +57,7 @@ def check_output_timeout(url, timeout=10):
         thrd_run.process.wait()
         thrd_run.output[2] = True
     except (OSError, AttributeError):
-#         logger.exception('got exception:')
+        #         logger.exception('got exception:')
         pass
 
     return thrd_run.output
