@@ -150,10 +150,13 @@ def process_json(jstr, show_log=False, encoding=None):
     if show_log:
         logger.debug('original: %s' % jstr)
 
-    if encoding is not None:
-        jstr = jstr.decode(encoding).encode('utf8')
-        if show_log:
-            logger.debug('after decoding:%s' % jstr)
+    if encoding is None:
+        jstr = jstr.decode('utf-8')
+    else:
+        jstr = jstr.decode(encoding)
+    if show_log:
+        logger.debug('after decoding:%s' % jstr)
+    jstr = str(jstr)
 
     # 下面代码，值中有单引号的情况会出错，暂不使用。
     # 处理json文件name没有加引号和值用单引号分割的情况。
