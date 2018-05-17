@@ -153,7 +153,6 @@ class access_handler():
 
             procinfo = dict()
             server_random = request_handler.client_address[0] + ':' + time.strftime('%Y%m%d%H%M%S',
-                    time.localtime(timecurr)) + ':' + str( random.randint(0, 100000000))
                     time.localtime(timecurr)) + ':' + str(random.randint(0, 100000000))
             token = hashlib.md5(server_random).hexdigest()
             procinfo['ip'] = request_handler.client_address[0]
