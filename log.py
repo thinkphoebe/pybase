@@ -15,8 +15,14 @@ logging_console = False
 logging_file = False
 logging_file_name = None
 logging_file_rotating_count = 10
+
+# rotating by size
 logging_file_rotating_size = 1024 * 1024 * 10
 logging_file_rotating_compress = True
+
+# rotating by time, not supporting compress yet
+logging_file_rotating_period = None  # S, M, H, D, W
+logging_file_rotating_interval = 1
 
 logging_udp = False
 logging_udp_ip = None
@@ -97,10 +103,15 @@ def update_config():
             os.makedirs(os.path.dirname(logging_file_name))
 
         if logging_file_rotating_count > 0:
-            _handler_file = CompressionRotatingFileHandler(logging_file_name, mode='a', \
-                                                           maxBytes=logging_file_rotating_size,
-                                                           backupCount=logging_file_rotating_count, \
-                                                           enable_compress=logging_file_rotating_compress)
+            if logging_file_rotating_period is None:
+                _handler_file = CompressionRotatingFileHandler(logging_file_name, mode='a',
+                    maxBytes=logging_file_rotating_size,
+                    backupCount=logging_file_rotating_count,
+                    enable_compress=logging_file_rotating_compress)
+            else:
+                _handler_file = logging.handlers.TimedRotatingFileHandler(logging_file_name,
+                    when=logging_file_rotating_period, interval=logging_file_rotating_interval,
+                    backupCount=logging_file_rotating_count)
         else:
             _handler_file = logging.FileHandler(logging_file_name, mode='a')
 

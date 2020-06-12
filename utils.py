@@ -297,3 +297,13 @@ def is_multicast_addr(addr_str):
         return socket.ntohl(struct.unpack('I', socket.inet_aton(addr_str))[0]) & 0xF0000000 == 0xE0000000
     except (socket.error, ValueError, IndexError):
         return False
+
+def get_host_ip():
+    ip = None
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('8.8.8.8', 80))
+        ip = s.getsockname()[0]
+    finally:
+        s.close()
+    return ip
