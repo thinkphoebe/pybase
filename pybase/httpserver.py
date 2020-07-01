@@ -20,6 +20,7 @@ import urllib.request
 
 from . import log
 
+import pybase.log
 logger = log.get_logger('httpserver')
 
 

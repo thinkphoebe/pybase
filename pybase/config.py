@@ -9,6 +9,8 @@ import os
 from . import log
 from . import utils
 
+import pybase.utils
+import pybase.log
 logger = log.get_logger('config')
 
 

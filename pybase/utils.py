@@ -13,8 +13,7 @@ import threading
 import time
 from copy import deepcopy
 
-from . import log
-
+import pybase.log
 logger = log.get_logger('utils')
 
 
