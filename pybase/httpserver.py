@@ -18,9 +18,8 @@ import urllib.parse
 import urllib.parse
 import urllib.request
 
-from . import log
+from pybase import log
 
-import pybase.log
 logger = log.get_logger('httpserver')
 
 
@@ -121,8 +120,8 @@ class access_handler():
         timecurr = time.time()
         if abs(session['active_time'] - timecurr) > access_handler.TIMEOUT:
             logger.debug('timeout, last active:%s, curr:%s' % (
-            time.strftime('%Y%m%d %H:%M:%S', time.localtime(session['active_time'])), \
-            time.strftime('%Y%m%d %H:%M:%S', time.localtime(timecurr))))
+                time.strftime('%Y%m%d %H:%M:%S', time.localtime(session['active_time'])), \
+                    time.strftime('%Y%m%d %H:%M:%S', time.localtime(timecurr))))
             del self._sessions[c['token'].value]
             return False
 
@@ -154,7 +153,7 @@ class access_handler():
 
             procinfo = dict()
             server_random = request_handler.client_address[0] + ':' + time.strftime('%Y%m%d%H%M%S',
-                    time.localtime(timecurr)) + ':' + str(random.randint(0, 100000000))
+                time.localtime(timecurr)) + ':' + str(random.randint(0, 100000000))
             token = hashlib.md5(server_random).hexdigest()
             procinfo['ip'] = request_handler.client_address[0]
             procinfo['token_time'] = timecurr
@@ -179,8 +178,8 @@ class access_handler():
         timecurr = time.time()
         if abs(data['token_time'] - timecurr) > access_handler.LOGIN_TIMEOUT:
             logger.debug('timeout, last token_time:%s, curr:%s' % (
-            time.strftime('%Y%m%d %H:%M:%S', time.localtime(data['token_time'])), \
-            time.strftime('%Y%m%d %H:%M:%S', time.localtime(timecurr))))
+                time.strftime('%Y%m%d %H:%M:%S', time.localtime(data['token_time'])), \
+                    time.strftime('%Y%m%d %H:%M:%S', time.localtime(timecurr))))
             del self._processing[c['token'].value]
             return _make_cookie()
 
@@ -316,7 +315,7 @@ class access_handler():
             return
         session = self._sessions[c['token'].value]
         logger.debug('logout, ip:%s, login time:%s' % (
-        session['ip'], time.strftime('%Y%m%d %H:%M:%S', time.localtime(session['login_time']))))
+            session['ip'], time.strftime('%Y%m%d %H:%M:%S', time.localtime(session['login_time']))))
         del self._sessions[c['token'].value]
         write_response(request_handler, 200, '{"status": "ok"}')
 

@@ -82,7 +82,7 @@ class Daemon:
                 sys.exit(1)
             else:
                 sys.stderr.write("pidfile %s exist and progress not running, call killpg and remove pidfile\n"
-                        % self.pidfile)
+                                 % self.pidfile)
                 try:
                     os.killpg(pid, signal.SIGKILL)
                     self.delpid()

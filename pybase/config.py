@@ -6,11 +6,8 @@ create: Jul 22, 2014
 import json
 import os
 
-from . import log
-from . import utils
+from pybase import log, utils
 
-import pybase.utils
-import pybase.log
 logger = log.get_logger('config')
 
 
